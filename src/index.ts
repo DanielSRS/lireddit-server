@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { MikroORM } from '@mikro-orm/core';
 import express from 'express';
 import { __prod__ } from './constants';
@@ -6,6 +7,7 @@ import mikroOrmConfig from './mikro-orm.config';
 import { ApolloServer } from 'apollo-server-express';
 import { buildSchema } from 'type-graphql';
 import { HelloRevolver } from './resolvers/hello';
+import { PostRevolver } from './resolvers/post';
 
 const main = async () => {
     const orm = await MikroORM.init(mikroOrmConfig);  // conecta com o banco de dados
@@ -22,9 +24,10 @@ const main = async () => {
 
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
-            resolvers: [HelloRevolver],
+            resolvers: [HelloRevolver, PostRevolver],
             validate: false,
-        })
+        }),
+        context: () => ({ em: orm.em })
     });
 
     await apolloServer.start();
