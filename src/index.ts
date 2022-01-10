@@ -8,26 +8,44 @@ import { buildSchema } from 'type-graphql';
 import { HelloRevolver } from './resolvers/hello';
 import { PostRevolver } from './resolvers/post';
 import { UserRevolver } from "./resolvers/user";
+import redis from 'redis';
+import session from 'express-session';
+import connectRedis from 'connect-redis';
 
 const main = async () => {
     const orm = await MikroORM.init(mikroOrmConfig);  // conecta com o banco de dados
     await orm.getMigrator().up();  // roda as migrations
 
-    // executa o sql
-    //const post = orm.em.create(Post, {title: 'my first post'});
-    //await orm.em.persistAndFlush(post);
-
-    //const posts = await orm.em.find(Post, {});
-    //console.log(posts);
-
     const app = express();
+
+    const RedisStore = connectRedis(session);
+    const redisClient = redis.createClient();
+
+    app.use(
+    session({
+        name: 'dqid',
+        store: new RedisStore({
+            client: redisClient,
+            disableTouch: true
+        }),
+        cookie: {
+            maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
+            httpOnly: true,
+            sameSite: 'lax', // csrf
+            secure: __prod__ // cookie only works in http
+        },
+        saveUninitialized: false,
+        secret: 'lansofjqwf352yhggb35/.;d,gnaskdhfo abnsurlfhoasbavun sowhof3453t',
+        resave: false,
+    })
+    )
 
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
             resolvers: [HelloRevolver, PostRevolver, UserRevolver],
             validate: false,
         }),
-        context: () => ({ em: orm.em })
+        context: ({ req, res }) => ({ em: orm.em, req, res })
     });
 
     await apolloServer.start();

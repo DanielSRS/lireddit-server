@@ -23,13 +23,30 @@ class UserResponse {
 
 @Resolver()
 export class UserRevolver {
+
+    // Retorna o usuário loggado
+    @Query(() => User, { nullable: true })
+    async me (
+        @Ctx() { req, em }: MyContext
+    ) {
+        if (!req.session.userID) {  // verifica se uma sessao (cookie) com o usuário logado
+            return null
+        }
+
+        const user = await em.findOne(User, { id: req.session.userID });
+
+        return user;
+    }
+
+
+    // Registra um novo usuário
     @Mutation(() => UserResponse)
     async register(
         @Arg('username') username: string,
         @Arg('password') password: string,
-        @Ctx() { em }: MyContext
+        @Ctx() { em, req }: MyContext
     ):Promise<UserResponse> {
-        if (username.length <= 5) {
+        if (username.length <= 5) { // se username não tem tamanho minimo
             return {
                 errors: [{
                     field: 'username',
@@ -38,7 +55,7 @@ export class UserRevolver {
             }
         }
 
-        if (password.length <= 5) {
+        if (password.length <= 5) { // se senha não tem tamanho minimo
             return {
                 errors: [{
                     field: 'password',
@@ -64,16 +81,23 @@ export class UserRevolver {
             }
         }
 
+        //  faz login do usuário apos registro
+        //  salva a sessão como o id do usuário
+        //  salva um cookie no cliente
+        //  mantem logado
+        req.session.userID = user.id;
+
         return {
             user
         }
     }
 
+    // Faz o login do usuário
     @Mutation(() => UserResponse)
     async login(
         @Arg('username') username: string,
         @Arg('password') password: string,
-        @Ctx() { em }: MyContext
+        @Ctx() { em, req }: MyContext
     ):Promise<UserResponse> {
         username = username.toLowerCase();
         const user = await em.findOne(User, { username })
@@ -97,6 +121,8 @@ export class UserRevolver {
                 }],
             }
         }
+
+        req.session.userID = user.id;
         
         return {
             user
